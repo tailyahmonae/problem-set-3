@@ -38,7 +38,39 @@ def calculate_metrics(model_pred_df, genre_list, genre_true_counts, genre_tp_cou
 
     '''
 
-    # Your code here
+    total_tp = 0
+    total_fp = 0
+    total_fn = 0
+    
+    macro_precision_list = []
+    macro_recall_list = []
+    macro_f1_list = []
+
+    for genre in genre_list:
+        # counts for the current genre
+        tp = genre_tp_counts.get(genre, 0)
+        fp = genre_fp_counts.get(genre, 0)
+        fn = genre_true_counts.get(genre, 0) - tp
+
+        # macro precision, recall, and F1 for the current genre
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+
+        macro_precision_list.append(precision)
+        macro_recall_list.append(recall)
+        macro_f1_list.append(f1)
+
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
+
+    # micro precision, recall, and F1
+    micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
+    micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
+    micro_f1 = 2 * (micro_precision * micro_recall) / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0
+
+    return (micro_precision, micro_recall, micro_f1), macro_precision_list, macro_recall_list, macro_f1_list
 
     
 def calculate_sklearn_metrics(model_pred_df, genre_list):
@@ -61,4 +93,21 @@ def calculate_sklearn_metrics(model_pred_df, genre_list):
     true_matrix = pd.DataFrame(true_rows)
     '''
 
-    # Your code here
+    pred_rows = []
+    true_rows = []
+
+    for _, row in model_pred_df.iterrows():
+        pred_row = [1 if genre == row['predicted'] else 0 for genre in genre_list]
+        true_row = [1 if genre in eval(row['actual genres']) else 0 for genre in genre_list]
+
+        pred_rows.append(pred_row)
+        true_rows.append(true_row)
+
+    pred_matrix = pd.DataFrame(pred_rows, columns=genre_list)
+    true_matrix = pd.DataFrame(true_rows, columns=genre_list)
+
+    # precision, recall, f1 for each genre
+    macro_prec, macro_rec, macro_f1, _ = precision_recall_fscore_support(true_matrix, pred_matrix, average='macro', zero_division=0)
+    micro_prec, micro_rec, micro_f1, _ = precision_recall_fscore_support(true_matrix, pred_matrix, average='micro', zero_division=0)
+
+    return (macro_prec, macro_rec, macro_f1), micro_prec, micro_rec, micro_f1
